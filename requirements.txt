@@ -1,6 +1,6 @@
-streamlit
-scikit-learn
-nltk
 pandas
-joblib
-newspaper3k  
+streamlit
+nltk
+newspaper3k
+scikit-learn==1.6.1
+joblib==1.5.3
