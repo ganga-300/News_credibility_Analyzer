@@ -32,7 +32,7 @@ if st.button("Analyze", use_container_width=True):
         pred = model.predict(features)[0]
         prob = model.predict_proba(features)[0][pred] * 100
 
-        if pred == 1:
+        if pred == 0:
             st.success(f"✅ Credible News — {prob:.1f}% confidence")
         else:
             st.error(f"⚠️ Potentially Fake News — {prob:.1f}% confidence")
