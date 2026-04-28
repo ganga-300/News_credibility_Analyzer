@@ -1,7 +1,10 @@
 streamlit
 nltk
-newspaper3k
 scikit-learn
 joblib
 numpy
 pandas
+faiss-cpu
+sentence-transformers
+groq
+newspaper3k
