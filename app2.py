@@ -234,13 +234,39 @@ def parse_output(text):
                 sections["DISCLAIMER"] += line + " "
     return sections
 
+# def run_pipeline(article_text):
+#     state = {"input_text": article_text}
+#     state = ml_node(state)
+#     state = retrieval_node(state)
+#     state = reasoning_node(state)
+#     return state
+
 def run_pipeline(article_text):
     state = {"input_text": article_text}
-    state = ml_node(state)
+    
+    # Ask LLM to classify input type first
+    classify_response = client.chat.completions.create(
+        model="llama-3.1-8b-instant",
+        messages=[{"role": "user", "content": f"""
+Is this a news article or a short factual claim?
+Text: "{article_text[:300]}"
+Reply with ONLY one word: ARTICLE or CLAIM
+"""}]
+    )
+    
+    input_type = classify_response.choices[0].message.content.strip().upper()
+    state["input_type"] = input_type
+    
+    # Only run ML if it's a news article
+    if "ARTICLE" in input_type:
+        state = ml_node(state)
+    else:
+        state["ml_prediction"] = -1
+        state["ml_confidence"] = 0.0
+    
     state = retrieval_node(state)
     state = reasoning_node(state)
     return state
-
 # ─── UI ──────────────────────────────────────────────
 st.markdown("""
 <div class="navbar">
