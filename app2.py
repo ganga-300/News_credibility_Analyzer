@@ -131,7 +131,7 @@ def ml_node(state):
 
 from tavily import TavilyClient
 
-tavily = TavilyClient(api_key=st.secrets["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"])
+tavily = TavilyClient(api_key=st.secrets["TAVILY_API_KEY"])
 
 def retrieval_node(state):
     # Search the live internet instead of fixed docs
