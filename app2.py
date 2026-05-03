@@ -153,29 +153,36 @@ def reasoning_node(state):
 
     prompt = f"""
 You are a strict fact-checking AI assistant.
+
+User claim: "{state["input_text"]}"
+
 ML Prediction: {label} with confidence {confidence:.2f}
-Evidence:
+NOTE: ML model is trained on news articles. For short factual claims, 
+trust the web search evidence MORE than the ML prediction.
+
+Live web search results:
 - {docs[0]}
 - {docs[1]}
 - {docs[2]}
 
 STRICT RULES:
-- If ML Signal is FAKE and confidence > 0.7 → Credibility MUST be LOW
-- If ML Signal is REAL and confidence > 0.7 → Credibility MUST be HIGH
-- NEVER contradict the ML signal when confidence is above 0.7
+- If web evidence CONFIRMS the claim → Credibility HIGH regardless of ML
+- If web evidence CONTRADICTS the claim → Credibility LOW
+- If ML confidence > 0.9 AND evidence agrees → strongly LOW
+- Short factual claims: trust evidence over ML signal
 
-Output EXACTLY in this format:
+Output EXACTLY:
 
 SUMMARY
-2 sentences summarizing the article claims.
+2 sentences about what the claim states.
 
-ANALYSIS
-2 sentences analyzing the evidence.
+ANALYSIS  
+2 sentences based on web evidence found.
 
 RISK_FACTORS
-- red flag 1
-- red flag 2
-- red flag 3
+- factor 1
+- factor 2
+- factor 3
 
 VERDICT
 Credibility: HIGH or LOW
