@@ -7,6 +7,7 @@ import numpy as np
 from nltk.corpus import stopwords
 from sentence_transformers import SentenceTransformer
 from groq import Groq
+from tavily import TavilyClient
 
 # ─── Page Config ─────────────────────────────────────
 st.set_page_config(page_title="News Credibility Analyzer", page_icon="🔍", layout="centered")
@@ -72,45 +73,7 @@ model = joblib.load('model.pkl')
 tfidf = joblib.load('tfidf.pkl')
 embed_model = SentenceTransformer('all-MiniLM-L6-v2')
 client = Groq(api_key=st.secrets["GROQ_API_KEY"])
-
-# ─── Documents ───────────────────────────────────────
-documents = [
-    "Vaccines do not cause autism. A study of 650,000 children found no link between MMR vaccine and autism.",
-    "COVID-19 vaccines do not contain microchips. This claim has been debunked by WHO and CDC.",
-    "Bill Gates is not using vaccines to implant tracking devices. This is a conspiracy theory with no evidence.",
-    "5G towers do not spread COVID-19. Viruses cannot travel on radio waves or mobile networks.",
-    "Drinking bleach or disinfectant does not cure COVID-19. It is extremely dangerous and can be fatal.",
-    "Ivermectin is not a proven cure for COVID-19. WHO and FDA have not approved it for COVID treatment.",
-    "Face masks do not cause oxygen deprivation. Medical studies confirm masks are safe to wear.",
-    "The 2020 US Presidential Election was not stolen. Over 60 courts including Supreme Court found no evidence of fraud.",
-    "Obama was born in Hawaii and is a natural born US citizen. His birth certificate has been verified.",
-    "George Soros is not funding antifa or controlling world governments. This is an antisemitic conspiracy theory.",
-    "Hillary Clinton did not run a child trafficking ring from a pizza restaurant. This Pizzagate claim is completely false.",
-    "Politicians voting on legislation is public record and can be verified through official government websites.",
-    "Climate change is real and caused by human activity. 97% of climate scientists agree on this consensus.",
-    "The Earth is not flat. This has been proven by centuries of scientific observation and space exploration.",
-    "Evolution is a scientific fact supported by fossil records, genetics, and direct observation.",
-    "The moon landing in 1969 was real. Thousands of NASA employees and independent scientists confirmed it.",
-    "Chemtrails conspiracy is false. Aircraft contrails are water vapor condensation not chemical spraying.",
-    "Celebrity death rumors spread rapidly on social media and are often completely fabricated.",
-    "Fake quotes attributed to celebrities and politicians are common misinformation tactics.",
-    "Deepfake videos can make celebrities appear to say things they never said.",
-    "Celebrity health rumors are frequently exaggerated or completely false on social media.",
-    "Economic statistics should be verified through official sources like World Bank or IMF.",
-    "Cryptocurrency investment scams promising guaranteed returns are fraudulent.",
-    "Get rich quick schemes promoted on social media are almost always scams.",
-    "Stock market predictions claiming guaranteed profits are misleading and potentially fraudulent.",
-    "Sensational headlines designed to provoke emotional reactions are a common misinformation tactic.",
-    "News articles without author names or credible sources should be treated with suspicion.",
-    "Misinformation often spreads through emotional manipulation rather than factual evidence.",
-    "Satire websites are sometimes mistaken for real news causing widespread misinformation.",
-    "Out of context images and videos are frequently used to spread false narratives online."
-]
-
-doc_embeddings = embed_model.encode(documents)
-dimension = doc_embeddings.shape[1]
-index = faiss.IndexFlatL2(dimension)
-index.add(np.array(doc_embeddings))
+tavily = TavilyClient(api_key=st.secrets["TAVILY_API_KEY"])
 
 # ─── Pipeline ────────────────────────────────────────
 def clean_text(text):
@@ -129,20 +92,13 @@ def ml_node(state):
     state["ml_confidence"] = float(max(proba))
     return state
 
-from tavily import TavilyClient
-
-tavily = TavilyClient(api_key=st.secrets["TAVILY_API_KEY"])
-
 def retrieval_node(state):
-    # Search the live internet instead of fixed docs
     results = tavily.search(
         query=state["input_text"][:200],
         max_results=3,
         search_depth="basic"
     )
-    
-    docs = [r["content"] for r in results["results"]]
-    state["retrieved_docs"] = docs
+    state["retrieved_docs"] = [r["content"] for r in results["results"]]
     return state
 
 def reasoning_node(state):
@@ -150,15 +106,20 @@ def reasoning_node(state):
     confidence = state["ml_confidence"]
     docs = state["retrieved_docs"]
     label = "FAKE" if pred == 1 else "REAL"
+    input_type = state.get("input_type", "ARTICLE")
+
+    if pred == -1:
+        ml_context = "ML model skipped — input is a factual claim. Base verdict ENTIRELY on web evidence."
+    else:
+        ml_context = f"ML Prediction: {label} with confidence {confidence:.2f}. Trust web evidence over ML for factual claims."
 
     prompt = f"""
 You are a strict fact-checking AI assistant.
 
-User claim: "{state["input_text"]}"
+User input: "{state["input_text"]}"
+Input type: {input_type}
 
-ML Prediction: {label} with confidence {confidence:.2f}
-NOTE: ML model is trained on news articles. For short factual claims, 
-trust the web search evidence MORE than the ML prediction.
+{ml_context}
 
 Live web search results:
 - {docs[0]}
@@ -166,28 +127,28 @@ Live web search results:
 - {docs[2]}
 
 STRICT RULES:
-- If web evidence CONFIRMS the claim → Credibility HIGH regardless of ML
+- If web evidence CONFIRMS the claim → Credibility HIGH
 - If web evidence CONTRADICTS the claim → Credibility LOW
-- If ML confidence > 0.9 AND evidence agrees → strongly LOW
-- Short factual claims: trust evidence over ML signal
+- If input is ARTICLE and ML confidence > 0.85 → trust ML signal strongly
+- If input is CLAIM → trust web evidence only, ignore ML
 
-Output EXACTLY:
+Output EXACTLY in this format:
 
 SUMMARY
-2 sentences about what the claim states.
+2 sentences summarizing the input.
 
-ANALYSIS  
+ANALYSIS
 2 sentences based on web evidence found.
 
 RISK_FACTORS
-- factor 1
-- factor 2
-- factor 3
+- risk factor 1
+- risk factor 2
+- risk factor 3
 
 VERDICT
 Credibility: HIGH or LOW
-Confidence: {confidence:.0%}
-ML Signal: {label}
+Confidence: {f"{confidence:.0%}" if pred != -1 else "Based on web evidence"}
+ML Signal: {label if pred != -1 else "N/A — factual claim"}
 
 DISCLAIMER
 This is an AI-generated assessment. Always verify with official sources.
@@ -234,39 +195,31 @@ def parse_output(text):
                 sections["DISCLAIMER"] += line + " "
     return sections
 
-# def run_pipeline(article_text):
-#     state = {"input_text": article_text}
-#     state = ml_node(state)
-#     state = retrieval_node(state)
-#     state = reasoning_node(state)
-#     return state
-
 def run_pipeline(article_text):
     state = {"input_text": article_text}
-    
-    # Ask LLM to classify input type first
+
     classify_response = client.chat.completions.create(
         model="llama-3.1-8b-instant",
         messages=[{"role": "user", "content": f"""
-Is this a news article or a short factual claim?
+Is this a news article or a factual claim?
 Text: "{article_text[:300]}"
 Reply with ONLY one word: ARTICLE or CLAIM
 """}]
     )
-    
+
     input_type = classify_response.choices[0].message.content.strip().upper()
     state["input_type"] = input_type
-    
-    # Only run ML if it's a news article
+
     if "ARTICLE" in input_type:
         state = ml_node(state)
     else:
         state["ml_prediction"] = -1
         state["ml_confidence"] = 0.0
-    
+
     state = retrieval_node(state)
     state = reasoning_node(state)
     return state
+
 # ─── UI ──────────────────────────────────────────────
 st.markdown("""
 <div class="navbar">
@@ -284,7 +237,7 @@ st.markdown("""
 text_input = st.text_area(
     "Article text",
     height=160,
-    placeholder="Paste a news article here to analyze its credibility...",
+    placeholder="Paste a news article or enter a factual claim to verify...",
     label_visibility="collapsed"
 )
 
@@ -296,25 +249,34 @@ if analyze:
     if not text_input.strip():
         st.warning("Please enter some text.")
     else:
-        with st.spinner("ML scoring → Fact retrieval → AI reasoning..."):
+        with st.spinner("Analyzing... ML scoring → Fact retrieval → AI reasoning"):
             result = run_pipeline(text_input)
 
         parsed = parse_output(result["final_output"])
         is_fake = result["ml_prediction"] == 1
-        conf = f"{result['ml_confidence']:.0%}"
-        ml_label = "FAKE" if is_fake else "REAL"
+        is_claim = result["ml_prediction"] == -1
+        is_fake_verdict = parsed.get("VERDICT", {}).get("credibility", "").upper() == "LOW"
+
+        # Use LLM verdict for claims, ML for articles
+        show_fake = is_fake_verdict if is_claim else is_fake
+
+        conf = "N/A" if is_claim else f"{result['ml_confidence']:.0%}"
+        ml_label = "N/A" if is_claim else ("FAKE" if is_fake else "REAL")
+        desc = "Web search verified · ML skipped for factual claim" if is_claim else (
+            "ML signal: FAKE · Agentic reasoning confirms" if is_fake else
+            "ML signal: REAL · Agentic reasoning confirms"
+        )
 
         st.markdown("<hr class='divider'>", unsafe_allow_html=True)
 
-        # Verdict banner
-        if is_fake:
+        if show_fake:
             st.markdown(f"""
             <div class="verdict-fake">
               <div style="display:flex;align-items:center;">
                 <div class="verdict-dot-fake"></div>
                 <div>
                   <div class="verdict-label-fake">Low credibility — potentially fake</div>
-                  <div class="verdict-desc">ML signal: FAKE · Agentic reasoning confirms</div>
+                  <div class="verdict-desc">{desc}</div>
                 </div>
               </div>
               <div>
@@ -330,7 +292,7 @@ if analyze:
                 <div class="verdict-dot-real"></div>
                 <div>
                   <div class="verdict-label-real">High credibility — likely real</div>
-                  <div class="verdict-desc">ML signal: REAL · Agentic reasoning confirms</div>
+                  <div class="verdict-desc">{desc}</div>
                 </div>
               </div>
               <div>
@@ -340,8 +302,7 @@ if analyze:
             </div>
             """, unsafe_allow_html=True)
 
-        # Metrics
-        color = "fake" if is_fake else "real"
+        color = "fake" if show_fake else "real"
         st.markdown(f"""
         <div class="metrics-row">
           <div class="metric-box">
@@ -350,7 +311,7 @@ if analyze:
           </div>
           <div class="metric-box">
             <div class="metric-label">Credibility</div>
-            <div class="metric-value-{color}">{"LOW" if is_fake else "HIGH"}</div>
+            <div class="metric-value-{color}">{"LOW" if show_fake else "HIGH"}</div>
           </div>
           <div class="metric-box">
             <div class="metric-label">Sources checked</div>
@@ -359,7 +320,6 @@ if analyze:
         </div>
         """, unsafe_allow_html=True)
 
-        # Summary
         if parsed["SUMMARY"]:
             st.markdown(f"""
             <div class="section-card">
@@ -368,7 +328,6 @@ if analyze:
             </div>
             """, unsafe_allow_html=True)
 
-        # Risk factors
         if parsed["RISK_FACTORS"]:
             risks_html = "".join([f'<div class="risk-item"><span class="risk-num">0{i+1}</span><span>{r}</span></div>' for i, r in enumerate(parsed["RISK_FACTORS"])])
             st.markdown(f"""
@@ -378,16 +337,15 @@ if analyze:
             </div>
             """, unsafe_allow_html=True)
 
-        # Fact checks
-        facts_html = "".join([f'<div class="fact-item"><div class="fact-bar"></div><span>{doc}</span></div>' for doc in result["retrieved_docs"]])
-        st.markdown(f"""
-        <div class="section-card">
-          <div class="section-header"><span class="section-tag">Retrieved fact-checks</span></div>
-          <div class="section-body">{facts_html}</div>
-        </div>
-        """, unsafe_allow_html=True)
+        if result["retrieved_docs"]:
+            facts_html = "".join([f'<div class="fact-item"><div class="fact-bar"></div><span>{doc}</span></div>' for doc in result["retrieved_docs"]])
+            st.markdown(f"""
+            <div class="section-card">
+              <div class="section-header"><span class="section-tag">Retrieved fact-checks</span></div>
+              <div class="section-body">{facts_html}</div>
+            </div>
+            """, unsafe_allow_html=True)
 
-        # Footer
         st.markdown("""
         <p class="footer-note">
           This is an AI-generated credibility assessment powered by ML classification and RAG-based fact retrieval.<br>
