@@ -4,7 +4,7 @@ An AI-powered misinformation detection system that combines classical Machine Le
 
 ## Live Demo
 - Phase 1 — ML Classifier: https://newscredibilityanalyzer-otxyjaxgeydnsbgvnwmwjl.streamlit.app
-- Phase 2 — Agentic AI: https://newscredibilityanalyzergit-deyscn4e2fgxait9rj2hjf.streamlit.app
+- Phase 2 — Agentic AI: https://newscredibilityanalyzergit-deyscn4e2fgxait9rj2hjf.streamlit.app/
 
 ## Project Overview
 
