@@ -2,10 +2,8 @@ import streamlit as st
 import joblib
 import string
 import nltk
-import faiss
 import numpy as np
 from nltk.corpus import stopwords
-from sentence_transformers import SentenceTransformer
 from groq import Groq
 from tavily import TavilyClient
 
@@ -26,6 +24,8 @@ header {visibility: hidden;}
 .nav-title {font-size: 15px; font-weight: 600; letter-spacing: -0.01em;}
 .nav-sub {font-size: 12px; opacity: 0.5; margin-top: 2px;}
 .nav-badge {font-size: 11px; padding: 4px 10px; border-radius: 20px; background: rgba(55,138,221,0.15); color: #378ADD; font-weight: 500;}
+
+.hint-text {font-size: 13px; opacity: 0.45; margin-bottom: 1.5rem;}
 
 .section-card {border: 1px solid rgba(255,255,255,0.08); border-radius: 12px; overflow: hidden; margin-bottom: 12px;}
 .section-header {padding: 10px 16px; border-bottom: 1px solid rgba(255,255,255,0.08); background: rgba(255,255,255,0.03);}
@@ -71,7 +71,6 @@ stop_words = set(stopwords.words('english'))
 
 model = joblib.load('model.pkl')
 tfidf = joblib.load('tfidf.pkl')
-embed_model = SentenceTransformer('all-MiniLM-L6-v2')
 client = Groq(api_key=st.secrets["GROQ_API_KEY"])
 tavily = TavilyClient(api_key=st.secrets["TAVILY_API_KEY"])
 
@@ -106,39 +105,31 @@ def reasoning_node(state):
     confidence = state["ml_confidence"]
     docs = state["retrieved_docs"]
     label = "FAKE" if pred == 1 else "REAL"
-    input_type = state.get("input_type", "ARTICLE")
-
-    if pred == -1:
-        ml_context = "ML model skipped — input is a factual claim. Base verdict ENTIRELY on web evidence."
-    else:
-        ml_context = f"ML Prediction: {label} with confidence {confidence:.2f}. Trust web evidence over ML for factual claims."
 
     prompt = f"""
-You are a strict fact-checking AI assistant.
+You are a strict news fact-checking AI assistant.
 
-User input: "{state["input_text"]}"
-Input type: {input_type}
+News article to analyze: "{state["input_text"]}"
 
-{ml_context}
+ML Model Prediction: {label} with confidence {confidence:.2f}
 
-Live web search results:
+Live web search results about this topic:
 - {docs[0]}
 - {docs[1]}
 - {docs[2]}
 
 STRICT RULES:
-- If web evidence CONFIRMS the claim → Credibility HIGH
-- If web evidence CONTRADICTS the claim → Credibility LOW
-- If input is ARTICLE and ML confidence > 0.85 → trust ML signal strongly
-- If input is CLAIM → trust web evidence only, ignore ML
+- If ML confidence > 0.85 → trust ML signal strongly
+- If web evidence strongly contradicts ML → use web evidence
+- If ML and web evidence agree → high confidence in verdict
 
-Output EXACTLY in this format:
+Output EXACTLY in this format, nothing else:
 
 SUMMARY
-2 sentences summarizing the input.
+2 sentences summarizing what the article claims.
 
 ANALYSIS
-2 sentences based on web evidence found.
+2 sentences analyzing the evidence from web search.
 
 RISK_FACTORS
 - risk factor 1
@@ -147,8 +138,8 @@ RISK_FACTORS
 
 VERDICT
 Credibility: HIGH or LOW
-Confidence: {f"{confidence:.0%}" if pred != -1 else "Based on web evidence"}
-ML Signal: {label if pred != -1 else "N/A — factual claim"}
+Confidence: {confidence:.0%}
+ML Signal: {label}
 
 DISCLAIMER
 This is an AI-generated assessment. Always verify with official sources.
@@ -197,25 +188,7 @@ def parse_output(text):
 
 def run_pipeline(article_text):
     state = {"input_text": article_text}
-
-    classify_response = client.chat.completions.create(
-        model="llama-3.1-8b-instant",
-        messages=[{"role": "user", "content": f"""
-Is this a news article or a factual claim?
-Text: "{article_text[:300]}"
-Reply with ONLY one word: ARTICLE or CLAIM
-"""}]
-    )
-
-    input_type = classify_response.choices[0].message.content.strip().upper()
-    state["input_type"] = input_type
-
-    if "ARTICLE" in input_type:
-        state = ml_node(state)
-    else:
-        state["ml_prediction"] = -1
-        state["ml_confidence"] = 0.0
-
+    state = ml_node(state)
     state = retrieval_node(state)
     state = reasoning_node(state)
     return state
@@ -234,10 +207,12 @@ st.markdown("""
 </div>
 """, unsafe_allow_html=True)
 
+st.markdown('<p class="hint-text">Paste a full news article to analyze its credibility. For best results use complete articles.</p>', unsafe_allow_html=True)
+
 text_input = st.text_area(
     "Article text",
     height=160,
-    placeholder="Paste a news article or enter a factual claim to verify...",
+    placeholder="Paste a news article here...",
     label_visibility="collapsed"
 )
 
@@ -247,29 +222,20 @@ with col2:
 
 if analyze:
     if not text_input.strip():
-        st.warning("Please enter some text.")
+        st.warning("Please paste a news article.")
     else:
-        with st.spinner("Analyzing... ML scoring → Fact retrieval → AI reasoning"):
+        with st.spinner("ML scoring → Fact retrieval → AI reasoning..."):
             result = run_pipeline(text_input)
 
         parsed = parse_output(result["final_output"])
         is_fake = result["ml_prediction"] == 1
-        is_claim = result["ml_prediction"] == -1
-        is_fake_verdict = parsed.get("VERDICT", {}).get("credibility", "").upper() == "LOW"
-
-        # Use LLM verdict for claims, ML for articles
-        show_fake = is_fake_verdict if is_claim else is_fake
-
-        conf = "N/A" if is_claim else f"{result['ml_confidence']:.0%}"
-        ml_label = "N/A" if is_claim else ("FAKE" if is_fake else "REAL")
-        desc = "Web search verified · ML skipped for factual claim" if is_claim else (
-            "ML signal: FAKE · Agentic reasoning confirms" if is_fake else
-            "ML signal: REAL · Agentic reasoning confirms"
-        )
+        conf = f"{result['ml_confidence']:.0%}"
+        ml_label = "FAKE" if is_fake else "REAL"
+        desc = "ML signal: FAKE · Agentic reasoning confirms" if is_fake else "ML signal: REAL · Agentic reasoning confirms"
 
         st.markdown("<hr class='divider'>", unsafe_allow_html=True)
 
-        if show_fake:
+        if is_fake:
             st.markdown(f"""
             <div class="verdict-fake">
               <div style="display:flex;align-items:center;">
@@ -302,7 +268,7 @@ if analyze:
             </div>
             """, unsafe_allow_html=True)
 
-        color = "fake" if show_fake else "real"
+        color = "fake" if is_fake else "real"
         st.markdown(f"""
         <div class="metrics-row">
           <div class="metric-box">
@@ -311,7 +277,7 @@ if analyze:
           </div>
           <div class="metric-box">
             <div class="metric-label">Credibility</div>
-            <div class="metric-value-{color}">{"LOW" if show_fake else "HIGH"}</div>
+            <div class="metric-value-{color}">{"LOW" if is_fake else "HIGH"}</div>
           </div>
           <div class="metric-box">
             <div class="metric-label">Sources checked</div>
