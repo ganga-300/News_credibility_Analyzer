@@ -129,10 +129,20 @@ def ml_node(state):
     state["ml_confidence"] = float(max(proba))
     return state
 
+from tavily import TavilyClient
+
+tavily = TavilyClient(api_key=st.secrets["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"])
+
 def retrieval_node(state):
-    query_embedding = embed_model.encode([state["input_text"]])
-    distances, indices = index.search(np.array(query_embedding), k=3)
-    state["retrieved_docs"] = [documents[i] for i in indices[0]]
+    # Search the live internet instead of fixed docs
+    results = tavily.search(
+        query=state["input_text"][:200],
+        max_results=3,
+        search_depth="basic"
+    )
+    
+    docs = [r["content"] for r in results["results"]]
+    state["retrieved_docs"] = docs
     return state
 
 def reasoning_node(state):
