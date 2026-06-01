@@ -1,3 +1,79 @@
+# Agentic News Credibility Analyzer
+
+![Version](https://img.shields.io/badge/version-5.0%20Agentic-blue)
+![LangGraph](https://img.shields.io/badge/LangGraph-enabled-brightgreen)
+![Python](https://img.shields.io/badge/Python-3.9+-yellow)
+
+A portfolio-quality AI system that goes beyond simple machine learning classification by implementing a modular **LangGraph Agent Architecture**. This system acts as a multi-step fact-checker, employing a Retrieval-Augmented Generation (RAG) pipeline to extract atomic claims, retrieve live web evidence, perform strict semantic verification, and logically aggregate verdicts.
+
+## 🚀 Features
+
+- **Multi-Agent Orchestration (LangGraph):** Employs specialized nodes for preprocessing, claim extraction, semantic ranking, and logical aggregation.
+- **Dynamic Routing:** Implements a "Confidence Router" that fast-tracks high-confidence ML predictions while delegating low-confidence inputs to a deep RAG verification pipeline.
+- **Atomic Claim Extraction:** Uses Groq LLMs to intelligently break down complex articles into isolated, verifiable assertions while stripping out caveats and hedges.
+- **Evidence-Based RAG Verification:** Leverages the Tavily Search API to dynamically source live evidence and evaluate claims strictly against retrieved data, avoiding AI hallucinations.
+- **Deterministic Aggregation:** Prevents LLM "rationalization" by enforcing strict boolean logic on the final verdict based on verified claims (e.g., a single FALSE claim downgrades the overall score).
+- **Professional Streamlit UI:** A clean, responsive dashboard that visualizes the AI's internal reasoning, claim-by-claim analysis, and identified risk factors.
+
+## 🧠 System Architecture
+
+The system utilizes a StateGraph to pass a strongly typed `AgentState` through multiple reasoning nodes. 
+
+For a detailed visual breakdown and Mermaid diagram, see the [Architecture Document](architecture.md).
+
+## 🛠️ Setup & Installation
+
+### Prerequisites
+- Python 3.9+
+- [Groq API Key](https://console.groq.com/)
+- [Tavily API Key](https://app.tavily.com/)
+
+### Installation
+
+1. **Clone the repository**
+   ```bash
+   git clone https://github.com/yourusername/news-credibility-analyzer.git
+   cd news-credibility-analyzer
+   ```
+
+2. **Install dependencies**
+   ```bash
+   pip install -r requirements.txt
+   ```
+
+3. **Configure Secrets**
+   Create a `.streamlit/secrets.toml` file in the root directory:
+   ```toml
+   GROQ_API_KEY = "your_groq_api_key_here"
+   TAVILY_API_KEY = "your_tavily_api_key_here"
+   ```
+
+4. **Run the Application**
+   ```bash
+   streamlit run app.py
+   ```
+
+## ☁️ Streamlit Cloud Deployment
+
+This project is structured specifically to be deployable on Streamlit Community Cloud. 
+1. Push this repository to GitHub.
+2. Log into [Streamlit Cloud](https://share.streamlit.io/).
+3. Create a new app, select your repository, and set the main file path to `app.py`.
+4. In the Advanced Settings, paste your API keys into the Secrets section using the same TOML format shown above.
+
+## 💼 Resume / Portfolio Description
+
+*If you are adding this project to your resume, here is a suggested bullet-point format:*
+
+**Agentic Fact-Verification Pipeline** | *Python, LangGraph, Streamlit, Groq, Tavily, Scikit-Learn*
+- Designed and engineered a multi-agent fact-checking system using **LangGraph**, replacing a monolithic ML pipeline with a dynamic, state-driven reasoning graph.
+- Implemented a **Retrieval-Augmented Generation (RAG)** architecture that utilizes Tavily to dynamically retrieve and rank web evidence against LLM-extracted claims.
+- Developed a dynamic confidence router that evaluates base TF-IDF/Scikit-Learn predictions, optimizing token usage by fast-tracking high-confidence inputs.
+- Built a modular, production-ready codebase with centralized prompting, resilient JSON parsing, and a professional **Streamlit** dashboard visualizing the agent's internal reasoning.
+
+---
+*Disclaimer: This is an AI-powered educational tool. Always verify critical claims with primary, official sources.*
+
 # News Credibility Analyzer
 
 An AI-powered misinformation detection system that combines classical Machine Learning with Agentic AI to analyze news articles and generate structured credibility reports.

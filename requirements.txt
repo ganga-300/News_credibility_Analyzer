@@ -9,3 +9,5 @@ sentence-transformers
 groq
 newspaper3k
 tavily-python
+langgraphsentence-transformers
+torch
