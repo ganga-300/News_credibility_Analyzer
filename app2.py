@@ -23,8 +23,11 @@ nltk.download("stopwords", quiet=True)
 stop_words = set(stopwords.words("english"))
 
 # Load ML artifacts
-model = joblib.load("model.pkl")
-tfidf = joblib.load("tfidf.pkl")
+import os
+
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+model = joblib.load(os.path.join(BASE_DIR, "models", "model.pkl"))
+tfidf = joblib.load(os.path.join(BASE_DIR, "models", "tfidf.pkl"))
 
 # API clients
 groq_client = Groq(
