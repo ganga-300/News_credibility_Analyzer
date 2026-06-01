@@ -4,10 +4,11 @@ scikit-learn
 joblib
 numpy
 pandas
-faiss-cpu
-sentence-transformers
 groq
 newspaper3k
 tavily-python
-langgraphsentence-transformers
-torch
+langgraph
+langchain
+langchain-core
+langchain-community
+sentence-transformers
