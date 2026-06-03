@@ -61,26 +61,9 @@ This project is structured specifically to be deployable on Streamlit Community 
 3. Create a new app, select your repository, and set the main file path to `app.py`.
 4. In the Advanced Settings, paste your API keys into the Secrets section using the same TOML format shown above.
 
-## 💼 Resume / Portfolio Description
-
-*If you are adding this project to your resume, here is a suggested bullet-point format:*
-
-**Agentic Fact-Verification Pipeline** | *Python, LangGraph, Streamlit, Groq, Tavily, Scikit-Learn*
-- Designed and engineered a multi-agent fact-checking system using **LangGraph**, replacing a monolithic ML pipeline with a dynamic, state-driven reasoning graph.
-- Implemented a **Retrieval-Augmented Generation (RAG)** architecture that utilizes Tavily to dynamically retrieve and rank web evidence against LLM-extracted claims.
-- Developed a dynamic confidence router that evaluates base TF-IDF/Scikit-Learn predictions, optimizing token usage by fast-tracking high-confidence inputs.
-- Built a modular, production-ready codebase with centralized prompting, resilient JSON parsing, and a professional **Streamlit** dashboard visualizing the agent's internal reasoning.
-
----
-*Disclaimer: This is an AI-powered educational tool. Always verify critical claims with primary, official sources.*
-
 # News Credibility Analyzer
 
 An AI-powered misinformation detection system that combines classical Machine Learning with Agentic AI to analyze news articles and generate structured credibility reports.
-
-## Live Demo
-- Phase 1 — ML Classifier: https://newscredibilityanalyzer-otxyjaxgeydnsbgvnwmwjl.streamlit.app
-- Phase 2 — Agentic AI: https://newscredibilityanalyzergit-deyscn4e2fgxait9rj2hjf.streamlit.app/
 
 ## Project Overview
 
