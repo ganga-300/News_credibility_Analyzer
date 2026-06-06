@@ -1,0 +1,8 @@
+flask
+flask-cors
+groq
+tavily-python
+langgraph
+scikit-learn
+nltk
+joblib
