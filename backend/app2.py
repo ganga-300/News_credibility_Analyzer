@@ -5,6 +5,9 @@ load_dotenv()
 
 from typing import TypedDict, List
 import string
+import os
+from dotenv import load_dotenv
+load_dotenv()
 import nltk
 import joblib
 from nltk.corpus import stopwords
@@ -140,7 +143,7 @@ DISCLAIMER
 This is an AI-generated assessment. Always verify with official sources."""
 
     response = groq_client.chat.completions.create(
-        model="llama-3.1-8b-instant",
+        model="qwen/qwen3.8-27b",
         messages=[{"role": "user", "content": prompt}]
     )
     return {"final_output": response.choices[0].message.content}
