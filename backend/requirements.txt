@@ -7,3 +7,4 @@ scikit-learn
 nltk
 joblib
 python-dotenv
+gunicorn
