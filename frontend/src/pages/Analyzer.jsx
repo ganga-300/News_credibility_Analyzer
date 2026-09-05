@@ -33,7 +33,7 @@ export default function Analyzer() {
     setError(null)
 
     try {
-      const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:5001/analyze'
+      const apiUrl = `${import.meta.env.VITE_API_URL || 'http://localhost:5001'}/analyze`
       const res = await fetch(apiUrl, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -43,7 +43,7 @@ export default function Analyzer() {
       const data = await res.json()
       setResult(data)
     } catch {
-      setError('Pipeline failed. Make sure the backend is running on port 5001.')
+      setError('Pipeline failed. Make sure the backend is running.')
     } finally {
       setLoading(false)
     }
